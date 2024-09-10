@@ -18,7 +18,8 @@
     "imap-simple": "^5.1.0",
     "mailparser": "^3.7.1",
     "node-fetch": "^3.3.2",
-    "nodemailer": "^6.9.14"
+    "nodemailer": "^6.9.14",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/nodemailer": "^6.4.15",

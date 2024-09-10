@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 import iconv from "iconv-lite";
 import EmailService, { emailOutput } from "./emailService.js";
+import * as XLSX from "xlsx";
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ const bitrixService = new BitrixService();
 
 // Где лучше sourse_id = 31
 // VRN source_id = 32
+// Алена source_id = 35
 
 const run = async () => {
   try {
@@ -57,8 +59,9 @@ const run = async () => {
       const body = email.body;
       const from = email.from;
 
-      if (from.includes("ISP")) {
+      if (from.includes("ISP <no-reply@isp-vrn.ru>")) {
         const parsedISP = await emailService.parseBodyEmailISP(body);
+        console.log(parsedISP);
         const contact = await bitrixService.createContact(
           parsedISP.name,
           " ",
@@ -76,8 +79,35 @@ const run = async () => {
         );
         console.log(deal);
         await emailService.moveEmails(idEmail, "ready");
+      } else if (from.includes("Л, Алёна <vo@isp-vrn.ru>")) {
+        const parsedBodyToText = await emailService.parseBodyToText(body);
+        console.log(parsedBodyToText);
+        const decodeBody = await emailService.decoderBase64(body);
+        console.log(decodeBody);
+        const parsedISP = await emailService.parseBodyEmailISP(
+          parsedBodyToText
+        );
+        console.log(parsedISP);
+
+        const contact = await bitrixService.createContact(
+          parsedISP.name,
+          " ",
+          " ",
+          parsedISP.phone,
+          parsedISP.address
+        );
+        console.log(contact);
+        const deal = await bitrixService.createDeal(
+          contact.result,
+          35,
+          parsedISP.address,
+          parsedISP.comment,
+          parsedISP.id
+        );
+        console.log(deal);
+        await emailService.moveEmails(idEmail, "ready");
       } else if (from.includes("gdelu.ru")) {
-        const decode = emailService.decoderBase64(body);
+        const decode = await emailService.decoderBase64(body);
         const parsedGDELU = await emailService.parseBodyEmailGDELU(decode);
         const contact = await bitrixService.createContact(
           parsedGDELU.name,
@@ -102,5 +132,6 @@ const run = async () => {
     console.error(error);
   }
 };
+
 // Запускаем функцию каждые 5 минут
 setInterval(run, 5 * 60 * 1000);

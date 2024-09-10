@@ -1,6 +1,7 @@
 import imap, { ImapSimpleOptions, ImapSimple } from "imap-simple";
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
+import { simpleParser } from "mailparser";
 import iconv from "iconv-lite";
 
 interface Email {
@@ -43,12 +44,14 @@ class EmailService {
       console.error("Connection error:", error);
     }
   }
-
-  decoderBase64(body: string): string {
+  async decoderBase64(body: string): Promise<string> {
     const base64Decoded = Buffer.from(body, "base64").toString("utf-8");
     return base64Decoded;
   }
-
+  async parseBodyToText(body: string): Promise<any> {
+    const email = await simpleParser(body);
+    return email.text;
+  }
   async parseBodyEmailISP(body: string): Promise<emailOutput> {
     // Удаляем все <br /> из тела письма
     const cleanedBody = body.replace(/<br\s*\/?>/gi, "\n");
@@ -75,6 +78,15 @@ class EmailService {
         result.id = item.split(":")[1].trim();
       } else if (item.includes("Примечание:")) {
         result.comment = item.split(":")[1].trim();
+      } else if (
+        !item.includes("Примечание:") &&
+        item.includes("Клиент указал желаемый способ связи:")
+      ) {
+        result.comment = item.split(":")[1].trim();
+        if (result.comment) {
+          result.comment =
+            "Клиент указал желаемый способ связи:" + result.comment;
+        }
       } else if (item.includes("Адрес:")) {
         result.address = item.split(":")[1].trim();
       }
@@ -104,7 +116,6 @@ class EmailService {
 
     return result;
   }
-
   async fetchEmails(subjectFilter: string): Promise<Email[]> {
     if (!this.connection) {
       throw new Error("Not connected to IMAP server");
@@ -167,7 +178,78 @@ class EmailService {
 
     return result;
   }
+  async fetchEmailsByDate(
+    subjectFilter = "Заявка",
+    since = "1-Aug-2024",
+    before = "1-Sep-2024"
+  ): Promise<Email[]> {
+    if (!this.connection) {
+      throw new Error("Not connected to IMAP server");
+    }
 
+    const result: Email[] = [];
+
+    try {
+      // Открываем папку ready вместо INBOX
+      const box = await this.connection.openBox("ready");
+      console.log("Opened ready folder");
+
+      // Указываем даты для фильтрации сообщений за август
+      const searchCriteria = [
+        ["SINCE", since],
+        ["BEFORE", before],
+        ["SUBJECT", subjectFilter],
+      ];
+      console.log(`Searching for criteria: ${JSON.stringify(searchCriteria)}`);
+
+      const fetchOptions = {
+        bodies: ["HEADER.FIELDS (FROM SUBJECT DATE)", "TEXT"],
+        markSeen: true,
+      };
+
+      const messages: any = await this.connection.search(
+        searchCriteria,
+        fetchOptions
+      );
+      console.log(`Found ${messages.length} messages`);
+
+      for (const message of messages) {
+        const { parts } = message;
+        const headerPart = parts.find(
+          (part: ImapMessagePart) =>
+            part.which === "HEADER.FIELDS (FROM SUBJECT DATE)"
+        );
+        const bodyPart = parts.find(
+          (part: ImapMessagePart) => part.which === "TEXT"
+        );
+
+        if (headerPart && bodyPart) {
+          const header = headerPart.body as {
+            from: string[];
+            subject: string[];
+            date: string[];
+          };
+          const body = bodyPart.body as string;
+
+          const email: Email = {
+            from: header.from[0],
+            subject: header.subject[0],
+            date: header.date[0],
+            body: body,
+            uid: message.attributes.uid,
+          };
+
+          result.push(email);
+        } else {
+          console.warn("Message parts are missing or invalid");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching emails:", error);
+    }
+
+    return result;
+  }
   async moveEmails(uid: string, targetFolder: string): Promise<void> {
     if (!this.connection) {
       throw new Error("Not connected to IMAP server");
@@ -180,7 +262,6 @@ class EmailService {
       console.error("Error moving emails:", error);
     }
   }
-
   async sendEmail(to: string, subject: string, html: string): Promise<void> {
     try {
       const mailOptions = {
@@ -196,7 +277,6 @@ class EmailService {
       console.error("Error sending email:", error);
     }
   }
-
   async disconnect(): Promise<void> {
     if (this.connection) {
       this.connection.end();
