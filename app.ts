@@ -1,11 +1,9 @@
 // app.ts
-import MailService from "./emailService.js";
 import BitrixService from "./bitrixService.js";
+import EmailService, { emailOutput } from "./emailService.js";
+
 import dotenv from "dotenv";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
-import iconv from "iconv-lite";
-import EmailService, { emailOutput } from "./emailService.js";
-import * as XLSX from "xlsx";
 
 dotenv.config();
 
@@ -50,8 +48,11 @@ const bitrixService = new BitrixService();
 
 const run = async () => {
   try {
+    // Подключение к почтовому сервису
     await emailService.connect();
+    // Получение писем у которых в тебе есть слово "Заявка"
     const emails = await emailService.fetchEmails("Заявка");
+
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
 
@@ -59,9 +60,11 @@ const run = async () => {
       const body = email.body;
       const from = email.from;
 
+      // Обработка писем от ISP, Алены и gdelu.ru
       if (from.includes("ISP <no-reply@isp-vrn.ru>")) {
+        // Парсинг тела письма
         const parsedISP = await emailService.parseBodyEmailISP(body);
-        console.log(parsedISP);
+        // Создание контакта
         const contact = await bitrixService.createContact(
           parsedISP.name,
           " ",
@@ -69,7 +72,7 @@ const run = async () => {
           parsedISP.phone,
           parsedISP.address
         );
-        console.log(contact);
+        // Создание сделки
         const deal = await bitrixService.createDeal(
           contact.result,
           32,
@@ -77,18 +80,15 @@ const run = async () => {
           parsedISP.comment,
           parsedISP.id
         );
-        console.log(deal);
+        // Перемещение письма в "ready"
         await emailService.moveEmails(idEmail, "ready");
       } else if (from.includes("Л, Алёна <vo@isp-vrn.ru>")) {
+        // Парсинг тела письма
         const parsedBodyToText = await emailService.parseBodyToText(body);
-        console.log(parsedBodyToText);
-        const decodeBody = await emailService.decoderBase64(body);
-        console.log(decodeBody);
         const parsedISP = await emailService.parseBodyEmailISP(
           parsedBodyToText
         );
-        console.log(parsedISP);
-
+        // Создание контакта
         const contact = await bitrixService.createContact(
           parsedISP.name,
           " ",
@@ -96,7 +96,7 @@ const run = async () => {
           parsedISP.phone,
           parsedISP.address
         );
-        console.log(contact);
+        // Создание сделки
         const deal = await bitrixService.createDeal(
           contact.result,
           35,
@@ -104,11 +104,14 @@ const run = async () => {
           parsedISP.comment,
           parsedISP.id
         );
-        console.log(deal);
+        // Перемещение письма в "ready"
         await emailService.moveEmails(idEmail, "ready");
       } else if (from.includes("gdelu.ru")) {
+        // Декодирование из base64
         const decode = await emailService.decoderBase64(body);
+        // Парсинг тела письма
         const parsedGDELU = await emailService.parseBodyEmailGDELU(decode);
+        // Создание контакта
         const contact = await bitrixService.createContact(
           parsedGDELU.name,
           " ",
@@ -116,7 +119,7 @@ const run = async () => {
           parsedGDELU.phone,
           parsedGDELU.address
         );
-        console.log(contact);
+        // Создание сделки
         const deal = await bitrixService.createDeal(
           contact.result,
           31,
@@ -124,7 +127,7 @@ const run = async () => {
           parsedGDELU.comment,
           parsedGDELU.id
         );
-        console.log(deal);
+        // Перемещение письма в "ready"
         await emailService.moveEmails(idEmail, "ready");
       }
     }
