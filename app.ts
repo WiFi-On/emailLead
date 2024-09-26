@@ -23,9 +23,9 @@ const imapConfig: ImapConfig = {
     user: process.env.MAIL_USER || "",
     password: process.env.MAIL_PASSWORD || "",
     host: process.env.IMAP_HOST || "",
-    port: parseInt(process.env.IMAP_PORT || "0", 10),
-    tls: false,
-    authTimeout: 3000,
+    port: parseInt(process.env.IMAP_PORT || "993", 10),
+    tls: true, // Используем TLS
+    authTimeout: 10000,
   },
 };
 
@@ -132,4 +132,4 @@ const run = async () => {
   }
 };
 
-setInterval(run, 5 * 60 * 1000);
+run();
