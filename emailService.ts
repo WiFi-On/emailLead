@@ -38,12 +38,25 @@ class EmailService {
 
   async connect(): Promise<void> {
     try {
-      this.connection = await imap.connect(this.config);
-      console.log("Connected to IMAP server");
+      if (!this.connection) {
+        this.connection = await imap.connect(this.config);
+        console.log("Connected to IMAP server");
+
+        // Добавляем обработчик ошибки после успешного подключения
+        this.connection.on("error", (err) => {
+          console.error("IMAP connection error:", err);
+          this.connection = null; // Закрываем соединение
+          // Попробуем переподключиться через 5 секунд
+          setTimeout(() => this.connect(), 5000);
+        });
+      }
     } catch (error) {
       console.error("Connection error:", error);
+      // Попробуем переподключиться через 5 секунд
+      setTimeout(() => this.connect(), 5000);
     }
   }
+
   async decoderBase64(body: string): Promise<string> {
     const base64Decoded = Buffer.from(body, "base64").toString("utf-8");
     return base64Decoded;
