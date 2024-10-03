@@ -126,10 +126,12 @@ const run = async () => {
         await emailService.moveEmails(idEmail, "ready");
         logger.info(`Обработано письмо от gdelu: ${parsedGDELU.id}`);
       }
+
+      await emailService.disconnect();
     }
   } catch (error) {
     logger.error(`Ошибка при обработке писем: ${error}`);
   }
 };
 
-setInterval(run, 2 * 60 * 1000);
+setInterval(run, 30 * 60 * 1000);
