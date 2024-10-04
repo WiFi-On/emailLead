@@ -126,9 +126,9 @@ const run = async () => {
         await emailService.moveEmails(idEmail, "ready");
         logger.info(`Обработано письмо от gdelu: ${parsedGDELU.id}`);
       }
-
-      await emailService.disconnect();
     }
+    await emailService.disconnect(); // Отключение после обработки всех писем
+    logger.info("Отключено от IMAP-сервера после обработки всех писем.");
   } catch (error) {
     logger.error(`Ошибка при обработке писем: ${error}`);
   }

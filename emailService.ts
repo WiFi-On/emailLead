@@ -2,7 +2,7 @@ import imap, { ImapSimpleOptions, ImapSimple } from "imap-simple";
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 import { simpleParser } from "mailparser";
-import iconv from "iconv-lite";
+import logger from "./logger.js";
 
 interface Email {
   from: string;
@@ -40,18 +40,20 @@ class EmailService {
     try {
       if (!this.connection) {
         this.connection = await imap.connect(this.config);
-        console.log("Connected to IMAP server");
+        logger.info("Успешно подключились к IMAP серверу");
 
         // Добавляем обработчик ошибки после успешного подключения
         this.connection.on("error", (err) => {
-          console.error("IMAP connection error:", err);
+          logger.error(`Ошибка IMAP соединения: ${err.message}`);
           this.connection = null; // Закрываем соединение
+
           // Попробуем переподключиться через 5 секунд
           setTimeout(() => this.connect(), 5000);
         });
       }
     } catch (error) {
-      console.error("Connection error:", error);
+      logger.error(`Ошибка при подключении к IMAP серверу: ${error}`);
+
       // Попробуем переподключиться через 5 секунд
       setTimeout(() => this.connect(), 5000);
     }
@@ -292,8 +294,14 @@ class EmailService {
   }
   async disconnect(): Promise<void> {
     if (this.connection) {
-      this.connection.end();
-      console.log("Disconnected from IMAP server");
+      try {
+        this.connection.end();
+        logger.info("Соединение с IMAP сервером закрыто");
+      } catch (error) {
+        logger.error(
+          `Ошибка при закрытии соединения с IMAP сервером: ${error}`
+        );
+      }
     }
   }
 }
