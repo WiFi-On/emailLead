@@ -25,7 +25,7 @@ const imapConfig: ImapConfig = {
     host: process.env.IMAP_HOST || "",
     port: parseInt(process.env.IMAP_PORT || "993", 10),
     tls: true, // Используем TLS
-    authTimeout: 10000,
+    authTimeout: 60000,
   },
 };
 
