@@ -134,4 +134,4 @@ const run = async () => {
   }
 };
 
-setInterval(run, 30 * 60 * 1000);
+setInterval(run, 60 * 60 * 1000);
