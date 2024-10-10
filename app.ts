@@ -46,35 +46,44 @@ const run = async () => {
   try {
     logger.info("Запуск обработки писем...");
     await emailService.connect();
-    const emails = await emailService.fetchEmails("Заявка");
-
-    for (let i = 0; i < emails.length; i++) {
-      const email = emails[i];
+    logger.info("Подключились к IMAP-серверу");
+    // Парсим письма от ISP
+    const emailsISP = await emailService.fetchEmails("Заявка");
+    logger.info(`Получили ${emailsISP.length} писем от ISP`);
+    for (let i = 0; i < emailsISP.length; i++) {
+      const email = emailsISP[i];
       const idEmail = email.uid;
       const body = email.body;
       const from = email.from;
 
       if (from.includes("ISP <no-reply@isp-vrn.ru>")) {
         const parsedISP = await emailService.parseBodyEmailISP(body);
-        logger.info(`Спарсил письмо от ISP: ${parsedISP.id}`);
-        const contact = await bitrixService.createContact(
-          parsedISP.name,
-          " ",
-          " ",
-          parsedISP.phone,
-          parsedISP.address
+        logger.info(
+          `Спарсил письмо от ISP. name: ${parsedISP.name} || phone: ${parsedISP.phone} || id: ${parsedISP.id}`
         );
-        logger.info(`Создал контакт: ${contact.result}`);
-        const deal = await bitrixService.createDeal(
-          contact.result,
-          32,
-          parsedISP.address,
-          parsedISP.comment,
-          parsedISP.id
-        );
-        logger.info(`Создал сделку: ${deal.result}`);
-        await emailService.moveEmails(idEmail, "ready");
-        logger.info(`Обработано письмо от ISP: ${parsedISP.id}`);
+
+        try {
+          const contact = await bitrixService.createContact(
+            parsedISP.name,
+            " ",
+            " ",
+            parsedISP.phone,
+            parsedISP.address
+          );
+          logger.info(`Создал контакт ISP: ${contact.result}`);
+          const deal = await bitrixService.createDeal(
+            contact.result,
+            32,
+            parsedISP.address,
+            parsedISP.comment,
+            parsedISP.id
+          );
+          logger.info(`Создал сделку ISP: ${deal.result}`);
+          await emailService.moveEmails(idEmail, "ready");
+        } catch (error) {
+          logger.error(`Не удалось создать сделку ISP: ${error}`);
+          await emailService.moveEmails(idEmail, "notReady");
+        }
       } else if (from.includes("Л, Алёна <vo@isp-vrn.ru>")) {
         const parsedBodyToText = await emailService.parseBodyToText(body);
         logger.info(
@@ -83,50 +92,74 @@ const run = async () => {
         const parsedISP = await emailService.parseBodyEmailISP(
           parsedBodyToText
         );
-        logger.info(`Спарсил письмо от Алена(ISP): ${parsedISP.id}`);
-        const contact = await bitrixService.createContact(
-          parsedISP.name,
-          " ",
-          " ",
-          parsedISP.phone,
-          parsedISP.address
+        logger.info(
+          `Спарсил письмо от Алена(ISP). name: ${parsedISP.name} || phone: ${parsedISP.phone} || id: ${parsedISP.id}`
         );
-        logger.info(`Создал контакт: ${contact.result}`);
-        const deal = await bitrixService.createDeal(
-          contact.result,
-          35,
-          parsedISP.address,
-          parsedISP.comment,
-          parsedISP.id
-        );
-        logger.info(`Создал сделку: ${deal.result}`);
-        await emailService.moveEmails(idEmail, "ready");
-        logger.info(`Обработано письмо от Алена(ISP): ${parsedISP.id}`);
-      } else if (from.includes("gdelu.ru")) {
+        try {
+          const contact = await bitrixService.createContact(
+            parsedISP.name,
+            " ",
+            " ",
+            parsedISP.phone,
+            parsedISP.address
+          );
+          logger.info(`Создал контакт Алена(ISP): ${contact.result}`);
+          const deal = await bitrixService.createDeal(
+            contact.result,
+            32,
+            parsedISP.address,
+            parsedISP.comment,
+            parsedISP.id
+          );
+          logger.info(`Создал сделку Алена(ISP): ${deal.result}`);
+          await emailService.moveEmails(idEmail, "ready");
+        } catch (error) {
+          logger.error(`Не удалось создать сделку Алена(ISP): ${error}`);
+          await emailService.moveEmails(idEmail, "notReady");
+        }
+      }
+    }
+    // Парсим письма от gdelu
+    const emailsGDELU = await emailService.fetchEmails("Новая заявка");
+    logger.info(`Получили ${emailsGDELU.length} писем от gdelu`);
+    for (let i = 0; i < emailsGDELU.length; i++) {
+      const email = emailsGDELU[i];
+      const idEmail = email.uid;
+      const body = email.body;
+      const from = email.from;
+
+      if (from.includes("gdelu.ru")) {
         const decode = await emailService.decoderBase64(body);
         logger.info(`Декодировал письмо от gdelu: ${decode}`);
         const parsedGDELU = await emailService.parseBodyEmailGDELU(decode);
-        logger.info(`Спарсил письмо от gdelu: ${parsedGDELU.id}`);
-        const contact = await bitrixService.createContact(
-          parsedGDELU.name,
-          " ",
-          " ",
-          parsedGDELU.phone,
-          parsedGDELU.address
+        logger.info(
+          `Спарсил письмо от gdelu. name: ${parsedGDELU.name} || phone: ${parsedGDELU.phone} || id: ${parsedGDELU.id}`
         );
-        logger.info(`Создал контакт: ${contact.result}`);
-        const deal = await bitrixService.createDeal(
-          contact.result,
-          31,
-          parsedGDELU.address,
-          parsedGDELU.comment,
-          parsedGDELU.id
-        );
-        logger.info(`Создал сделку: ${deal.result}`);
-        await emailService.moveEmails(idEmail, "ready");
-        logger.info(`Обработано письмо от gdelu: ${parsedGDELU.id}`);
+        try {
+          const contact = await bitrixService.createContact(
+            parsedGDELU.name,
+            " ",
+            " ",
+            parsedGDELU.phone,
+            parsedGDELU.address
+          );
+          logger.info(`Создал контакт gdelu: ${contact.result}`);
+          const deal = await bitrixService.createDeal(
+            contact.result,
+            31,
+            parsedGDELU.address,
+            parsedGDELU.comment,
+            parsedGDELU.id
+          );
+          logger.info(`Создал сделку gdelu: ${deal.result}`);
+          await emailService.moveEmails(idEmail, "ready");
+        } catch (error) {
+          logger.error(`Не удалось создать сделку gdelu: ${error}`);
+          await emailService.moveEmails(idEmail, "notReady");
+        }
       }
     }
+
     await emailService.disconnect(); // Отключение после обработки всех писем
     logger.info("Отключено от IMAP-сервера после обработки всех писем.");
   } catch (error) {
@@ -134,4 +167,4 @@ const run = async () => {
   }
 };
 
-setInterval(run, 60 * 60 * 1000);
+run();

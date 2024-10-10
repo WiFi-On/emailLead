@@ -38,24 +38,25 @@ class EmailService {
 
   async connect(): Promise<void> {
     try {
-      if (!this.connection) {
-        this.connection = await imap.connect(this.config);
-        logger.info("Успешно подключились к IMAP серверу");
-
-        // Добавляем обработчик ошибки после успешного подключения
-        this.connection.on("error", (err) => {
-          logger.error(`Ошибка IMAP соединения: ${err.message}`);
-          this.connection = null; // Закрываем соединение
-
-          // Попробуем переподключиться через 5 секунд
-          setTimeout(() => this.connect(), 5000);
-        });
-      }
+      this.connection = await imap.connect(this.config);
+      console.log("Connected to IMAP server");
     } catch (error) {
-      logger.error(`Ошибка при подключении к IMAP серверу: ${error}`);
+      console.error("Error connecting to IMAP server:", error);
+    }
+  }
 
-      // Попробуем переподключиться через 5 секунд
-      setTimeout(() => this.connect(), 5000);
+  // Функция для отключения от IMAP-сервера
+  async disconnect(): Promise<void> {
+    if (this.connection) {
+      try {
+        this.connection.end();
+        console.log("Disconnected from IMAP server");
+        this.connection = null;
+      } catch (error) {
+        console.error("Error disconnecting from IMAP server:", error);
+      }
+    } else {
+      console.warn("Not connected to IMAP server, cannot disconnect");
     }
   }
 
@@ -140,10 +141,7 @@ class EmailService {
 
     try {
       const box = await this.connection.openBox("INBOX");
-      console.log("Opened INBOX");
-
       const searchCriteria = [["SUBJECT", subjectFilter]];
-      console.log(`Searching for criteria: ${JSON.stringify(searchCriteria)}`);
 
       const fetchOptions = {
         bodies: ["HEADER.FIELDS (FROM SUBJECT DATE)", "TEXT"],
@@ -154,7 +152,6 @@ class EmailService {
         searchCriteria,
         fetchOptions
       );
-      console.log(`Found ${messages.length} messages`);
 
       for (const message of messages) {
         const { parts } = message;
@@ -290,18 +287,6 @@ class EmailService {
       console.log(`Email sent to ${to}`);
     } catch (error) {
       console.error("Error sending email:", error);
-    }
-  }
-  async disconnect(): Promise<void> {
-    if (this.connection) {
-      try {
-        this.connection.end();
-        logger.info("Соединение с IMAP сервером закрыто");
-      } catch (error) {
-        logger.error(
-          `Ошибка при закрытии соединения с IMAP сервером: ${error}`
-        );
-      }
     }
   }
 }
